@@ -85,6 +85,56 @@ Preview only (no file writes):
 tftidy --dry-run ./terraform
 ```
 
+## Migration from legacy tools
+
+`tftidy` is the unified replacement for:
+
+- `terraform-moved-remover`
+- `terraform-removed-remover`
+- `terraform-import-remover`
+
+### Command migration paths
+
+From `terraform-moved-remover`:
+
+```bash
+terraform-moved-remover [options] [directory]
+# ->
+tftidy --type moved [options] [directory]
+```
+
+From `terraform-removed-remover`:
+
+```bash
+terraform-removed-remover [options] [directory]
+# ->
+tftidy --type removed [options] [directory]
+```
+
+From `terraform-import-remover`:
+
+```bash
+terraform-import-remover [options] [directory]
+# ->
+tftidy --type import [options] [directory]
+```
+
+### Option mapping
+
+- `-dry-run` / `--dry-run` -> `-n` / `--dry-run`
+- `-verbose` / `--verbose` -> `-v` / `--verbose`
+- `-normalize-whitespace` / `--normalize-whitespace` -> `--normalize-whitespace`
+- `-help` / `--help` -> `-h` / `--help`
+- `-version` / `--version` -> `--version`
+
+### Behavioral differences
+
+- No format-only writes: files are not rewritten when target blocks are not present.
+- Original file permissions are preserved when files are rewritten.
+- Exit code behavior:
+  - `1`: at least one runtime/file processing error
+  - `2`: usage/argument error
+
 ## Output
 
 The command prints a processing summary including:
