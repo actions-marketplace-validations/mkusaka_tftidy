@@ -6,9 +6,9 @@ A Go tool that recursively scans Terraform files and removes transient blocks: `
 
 `tftidy` unifies these tools into a single CLI:
 
-- `terraform-moved-remover`
-- `terraform-removed-remover`
-- `terraform-import-remover`
+- [`terraform-moved-remover`](https://github.com/mkusaka/terraform-moved-remover)
+- [`terraform-removed-remover`](https://github.com/mkusaka/terraform-removed-remover)
+- [`terraform-import-remover`](https://github.com/mkusaka/terraform-import-remover)
 
 It helps clean up Terraform configurations after refactors and state operations by removing no-longer-needed transition blocks while preserving the rest of the file.
 
@@ -101,7 +101,7 @@ tftidy --dry-run ./terraform
 
 ### Command migration paths
 
-From `terraform-moved-remover`:
+From [`terraform-moved-remover`](https://github.com/mkusaka/terraform-moved-remover):
 
 ```bash
 terraform-moved-remover [options] [directory]
@@ -109,7 +109,7 @@ terraform-moved-remover [options] [directory]
 tftidy --type moved [options] [directory]
 ```
 
-From `terraform-removed-remover`:
+From [`terraform-removed-remover`](https://github.com/mkusaka/terraform-removed-remover):
 
 ```bash
 terraform-removed-remover [options] [directory]
@@ -117,7 +117,7 @@ terraform-removed-remover [options] [directory]
 tftidy --type removed [options] [directory]
 ```
 
-From `terraform-import-remover`:
+From [`terraform-import-remover`](https://github.com/mkusaka/terraform-import-remover):
 
 ```bash
 terraform-import-remover [options] [directory]
