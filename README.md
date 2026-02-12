@@ -1,76 +1,88 @@
 # tftidy
 
-`tftidy` is a Terraform cleanup CLI that removes transient top-level blocks from `.tf` files:
+A Go tool that recursively scans Terraform files and removes transient blocks: `moved`, `removed`, and `import`.
 
-- `moved`
-- `removed`
-- `import`
+## Overview
 
-It is useful for post-migration cleanup when those blocks are no longer needed.
+`tftidy` unifies these tools into a single CLI:
+
+- `terraform-moved-remover`
+- `terraform-removed-remover`
+- `terraform-import-remover`
+
+It helps clean up Terraform configurations after refactors and state operations by removing no-longer-needed transition blocks while preserving the rest of the file.
 
 ## Features
 
-- Removes one or more block types (`moved`, `removed`, `import`)
-- Supports selective cleanup with `--type`
+- Recursively scans directories for `.tf` files
+- Removes selected block types: `moved`, `removed`, `import`
+- Supports selecting block types with `--type`
 - Supports dry-run mode (`--dry-run`)
-- Preserves original file permissions when writing
-- Skips writes when no target block exists
-- Recursively discovers `.tf` files via `github.com/boyter/gocodewalker`
-- Excludes cache directories:
-  - `.terraform`
-  - `.terragrunt-cache`
+- Preserves original file permissions on write
+- Skips writes when no target blocks are found
+- Applies HCL formatting after removal
+- Optional whitespace normalization (`--normalize-whitespace`)
+- Reports detailed processing statistics
+
+## Requirements
+
+- Go 1.24 or later
 
 ## Installation
 
-### Build from source
+### From Source
 
 ```bash
+git clone https://github.com/mkusaka/tftidy.git
+cd tftidy
 go build -o tftidy ./cmd/tftidy
 ```
 
-### Run with Go
+### Using Go Install
 
 ```bash
-go run ./cmd/tftidy --help
+go install github.com/mkusaka/tftidy/cmd/tftidy@latest
 ```
+
+This installs the binary into your `$GOPATH/bin` (or `$GOBIN` if set).
 
 ## Usage
 
-```text
+```bash
 tftidy [options] [directory]
 ```
 
-If `directory` is omitted, `.` is used.
+If `directory` is not specified, the current directory is used.
 
 ### Options
 
 - `-t, --type string`
-  - Comma-separated block types to remove
-  - Default: `moved,removed,import`
-  - Valid values: `moved`, `removed`, `import`, `all`
+  Comma-separated block types to remove.
+  Valid values: `moved`, `removed`, `import`, `all`.
+  Default: `moved,removed,import`
 - `-n, --dry-run`
-  - Preview changes without modifying files
+  Preview changes without modifying files.
 - `-v, --verbose`
-  - Print each file being processed
+  Show each file being processed.
 - `--normalize-whitespace`
-  - Normalize consecutive blank lines after removal
+  Normalize consecutive blank lines after removal.
 - `--version`
-  - Print version
+  Show version.
 - `-h, --help`
-  - Print help
+  Show help.
 
 ### Examples
 
-Remove all supported block types in current directory:
+Remove all supported block types in the current directory:
 
 ```bash
 tftidy
 ```
 
-Remove only `moved` blocks under `./infra`:
+Remove only `moved` blocks:
 
 ```bash
-tftidy --type moved ./infra
+tftidy --type moved ./terraform
 ```
 
 Remove `moved` and `import` blocks with whitespace normalization:
@@ -86,12 +98,6 @@ tftidy --dry-run ./terraform
 ```
 
 ## Migration from legacy tools
-
-`tftidy` is the unified replacement for:
-
-- `terraform-moved-remover`
-- `terraform-removed-remover`
-- `terraform-import-remover`
 
 ### Command migration paths
 
@@ -129,33 +135,48 @@ tftidy --type import [options] [directory]
 
 ### Behavioral differences
 
-- No format-only writes: files are not rewritten when target blocks are not present.
+- Files are not rewritten when no target blocks are found (no format-only writes).
 - Original file permissions are preserved when files are rewritten.
-- Exit code behavior:
-  - `1`: at least one runtime/file processing error
-  - `2`: usage/argument error
+- Exit codes are strict:
+  - `1` for runtime/file processing errors
+  - `2` for usage/argument errors
 
-## Output
+## Example Output
 
-The command prints a processing summary including:
+```text
+Files processed: 15
+Files modified: 7
+Files errored: 0
 
-- files processed
-- files modified
-- files errored
-- removed block counts per type and total
+Blocks removed:
+  moved:   12
+  removed: 3
+  import:  5
+  total:   20
+```
 
-## Exit codes
+## Exit Codes
 
 - `0`: success
 - `1`: runtime/file processing error(s)
 - `2`: usage/argument error
 
-When file processing errors occur, `tftidy` continues processing other files and exits with `1` at the end.
+If processing errors occur, `tftidy` continues other files and returns `1` at the end.
+
+## How It Works
+
+`tftidy` parses Terraform files using HashiCorp HCL v2, locates target top-level blocks, removes their byte ranges, formats the result, and writes changes in place (unless dry-run).
+
+File discovery is powered by `github.com/boyter/gocodewalker`, and excludes `.terraform` / `.terragrunt-cache` directories.
 
 ## Development
 
 ```bash
+go build -v ./cmd/tftidy
 go test -v ./...
 go test -race ./...
-go build -v ./cmd/tftidy
 ```
+
+## License
+
+MIT
