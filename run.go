@@ -37,7 +37,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	showHelp := fs.BoolP("help", "h", false, "Show help")
 
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(stderr, "Error: %v\n\n", err)
+		writef(stderr, "Error: %v\n\n", err)
 		printUsage(stderr)
 		return 2
 	}
@@ -48,20 +48,20 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if *showVersion {
-		fmt.Fprintf(stdout, "tftidy %s\n", Version)
+		writef(stdout, "tftidy %s\n", Version)
 		return 0
 	}
 
 	remaining := fs.Args()
 	if len(remaining) > 1 {
-		fmt.Fprintf(stderr, "Error: expected at most one directory argument\n\n")
+		writef(stderr, "Error: expected at most one directory argument\n\n")
 		printUsage(stderr)
 		return 2
 	}
 
 	blockTypes, err := parseBlockTypes(*rawTypes)
 	if err != nil {
-		fmt.Fprintf(stderr, "Error: %v\n", err)
+		writef(stderr, "Error: %v\n", err)
 		return 2
 	}
 
@@ -72,17 +72,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	info, err := os.Stat(dir)
 	if err != nil {
-		fmt.Fprintf(stderr, "Error: %v\n", err)
+		writef(stderr, "Error: %v\n", err)
 		return 1
 	}
 	if !info.IsDir() {
-		fmt.Fprintf(stderr, "Error: %s is not a directory\n", dir)
+		writef(stderr, "Error: %s is not a directory\n", dir)
 		return 1
 	}
 
 	files, err := discoverFiles(dir)
 	if err != nil {
-		fmt.Fprintf(stderr, "Error: failed to discover Terraform files: %v\n", err)
+		writef(stderr, "Error: failed to discover Terraform files: %v\n", err)
 		return 1
 	}
 
@@ -94,7 +94,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	for _, path := range files {
 		st.filesProcessed++
 		if *verbose {
-			fmt.Fprintf(stdout, "Processing: %s\n", path)
+			writef(stdout, "Processing: %s\n", path)
 		}
 
 		fileInfo, err := os.Stat(path)
@@ -200,22 +200,22 @@ func parseBlockTypes(raw string) ([]string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "tftidy - Remove transient blocks (moved, removed, import) from Terraform files")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Usage: tftidy [options] [directory]")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Options:")
-	fmt.Fprintln(w, "  -t, --type string              Block types to remove, comma-separated (default \"moved,removed,import\")")
-	fmt.Fprintln(w, "  -n, --dry-run                  Preview changes without modifying files")
-	fmt.Fprintln(w, "  -v, --verbose                  Show each file being processed")
-	fmt.Fprintln(w, "      --normalize-whitespace     Normalize consecutive blank lines after removal")
-	fmt.Fprintln(w, "      --version                  Show version")
-	fmt.Fprintln(w, "  -h, --help                     Show help")
+	writeln(w, "tftidy - Remove transient blocks (moved, removed, import) from Terraform files")
+	writeln(w)
+	writeln(w, "Usage: tftidy [options] [directory]")
+	writeln(w)
+	writeln(w, "Options:")
+	writeln(w, "  -t, --type string              Block types to remove, comma-separated (default \"moved,removed,import\")")
+	writeln(w, "  -n, --dry-run                  Preview changes without modifying files")
+	writeln(w, "  -v, --verbose                  Show each file being processed")
+	writeln(w, "      --normalize-whitespace     Normalize consecutive blank lines after removal")
+	writeln(w, "      --version                  Show version")
+	writeln(w, "  -h, --help                     Show help")
 }
 
 func recordFileError(stderr io.Writer, path string, err error, st *stats) {
 	st.filesErrored++
-	fmt.Fprintf(stderr, "Error processing %s: %v\n", path, err)
+	writef(stderr, "Error processing %s: %v\n", path, err)
 }
 
 func addCounts(st *stats, counts map[string]int) {
@@ -233,18 +233,26 @@ func sumCounts(counts map[string]int) int {
 }
 
 func printStats(stdout io.Writer, st stats, blockTypes []string) {
-	fmt.Fprintf(stdout, "Files processed: %d\n", st.filesProcessed)
-	fmt.Fprintf(stdout, "Files modified: %d\n", st.filesModified)
-	fmt.Fprintf(stdout, "Files errored: %d\n", st.filesErrored)
-	fmt.Fprintln(stdout)
-	fmt.Fprintln(stdout, "Blocks removed:")
+	writef(stdout, "Files processed: %d\n", st.filesProcessed)
+	writef(stdout, "Files modified: %d\n", st.filesModified)
+	writef(stdout, "Files errored: %d\n", st.filesErrored)
+	writeln(stdout)
+	writeln(stdout, "Blocks removed:")
 
 	total := 0
 	for _, blockType := range blockTypes {
 		count := st.blockCounts[blockType]
 		total += count
-		fmt.Fprintf(stdout, "  %-8s %d\n", blockType+":", count)
+		writef(stdout, "  %-8s %d\n", blockType+":", count)
 	}
 
-	fmt.Fprintf(stdout, "  %-8s %d\n", "total:", total)
+	writef(stdout, "  %-8s %d\n", "total:", total)
+}
+
+func writef(w io.Writer, format string, args ...any) {
+	_, _ = fmt.Fprintf(w, format, args...)
+}
+
+func writeln(w io.Writer, args ...any) {
+	_, _ = fmt.Fprintln(w, args...)
 }
