@@ -1,0 +1,39 @@
+name: "tftidy"
+description: "Remove transient blocks (moved, removed, import) from Terraform files"
+author: "mkusaka"
+
+branding:
+  icon: "scissors"
+  color: "purple"
+
+inputs:
+  type:
+    description: "Comma-separated block types to remove (moved, removed, import, all)"
+    required: false
+    default: "moved,removed,import"
+  dry-run:
+    description: "Preview changes without modifying files"
+    required: false
+    default: "false"
+  verbose:
+    description: "Show each file being processed"
+    required: false
+    default: "false"
+  normalize-whitespace:
+    description: "Normalize consecutive blank lines after removal"
+    required: false
+    default: "false"
+  directory:
+    description: "Target directory to scan (relative to workspace root)"
+    required: false
+    default: "."
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  args:
+    - ${{ inputs.type }}
+    - ${{ inputs.dry-run }}
+    - ${{ inputs.verbose }}
+    - ${{ inputs.normalize-whitespace }}
+    - ${{ inputs.directory }}

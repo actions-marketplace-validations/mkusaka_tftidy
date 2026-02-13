@@ -97,6 +97,60 @@ Preview only (no file writes):
 tftidy --dry-run ./terraform
 ```
 
+## GitHub Actions
+
+You can use `tftidy` as a GitHub Action in your workflows.
+
+### Basic Usage
+
+```yaml
+- uses: mkusaka/tftidy@v0
+```
+
+### With Options
+
+```yaml
+- uses: mkusaka/tftidy@v0
+  with:
+    type: "moved,import"
+    dry-run: "true"
+    verbose: "true"
+    normalize-whitespace: "true"
+    directory: "terraform"
+```
+
+### Inputs
+
+| Input                   | Description                                           | Default               |
+|-------------------------|-------------------------------------------------------|-----------------------|
+| `type`                  | Comma-separated block types to remove                 | `moved,removed,import`|
+| `dry-run`               | Preview changes without modifying files               | `false`               |
+| `verbose`               | Show each file being processed                        | `false`               |
+| `normalize-whitespace`  | Normalize consecutive blank lines after removal       | `false`               |
+| `directory`             | Target directory to scan (relative to workspace root) | `.`                   |
+
+### Example Workflow
+
+```yaml
+name: Terraform Tidy
+
+on:
+  pull_request:
+    paths:
+      - "**/*.tf"
+
+jobs:
+  tftidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mkusaka/tftidy@v0
+        with:
+          type: "moved,removed,import"
+          verbose: "true"
+```
+
 ## Example Files
 
 Legacy example sets were migrated into this repository under `examples/`.
