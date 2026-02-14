@@ -29,11 +29,119 @@ inputs:
     default: "."
 
 runs:
-  using: "docker"
-  image: "Dockerfile"
-  args:
-    - ${{ inputs.type }}
-    - ${{ inputs.dry-run }}
-    - ${{ inputs.verbose }}
-    - ${{ inputs.normalize-whitespace }}
-    - ${{ inputs.directory }}
+  using: "composite"
+  steps:
+    - name: Determine platform
+      id: platform
+      shell: bash
+      env:
+        RUNNER_OS_VALUE: ${{ runner.os }}
+        RUNNER_ARCH_VALUE: ${{ runner.arch }}
+      run: |
+        case "${RUNNER_OS_VALUE}" in
+          Linux)   os=linux ;;
+          macOS)   os=darwin ;;
+          Windows) os=windows ;;
+          *)       echo "::error::Unsupported OS: ${RUNNER_OS_VALUE}"; exit 1 ;;
+        esac
+        case "${RUNNER_ARCH_VALUE}" in
+          X64)   arch=amd64 ;;
+          ARM64) arch=arm64 ;;
+          *)     echo "::error::Unsupported architecture: ${RUNNER_ARCH_VALUE}"; exit 1 ;;
+        esac
+        if [ "${os}" = "windows" ]; then
+          ext=zip
+        else
+          ext=tar.gz
+        fi
+        echo "os=${os}" >> "${GITHUB_OUTPUT}"
+        echo "arch=${arch}" >> "${GITHUB_OUTPUT}"
+        echo "ext=${ext}" >> "${GITHUB_OUTPUT}"
+
+    - name: Resolve release tag
+      id: resolve
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        ACTION_REF: ${{ github.action_ref }}
+        ACTION_REPO: ${{ github.action_repository }}
+      run: |
+        ref="${ACTION_REF}"
+        repo="${ACTION_REPO}"
+        # Full semver tag (v1.2.3) -> use directly
+        if echo "${ref}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+          echo "tag=${ref}" >> "${GITHUB_OUTPUT}"
+          exit 0
+        fi
+        # Partial ref (v0, v1) -> find latest matching release
+        # GitHub API returns releases in reverse chronological order, so first match is latest
+        tag=$(gh api "repos/${repo}/releases" \
+          --paginate --jq '.[].tag_name' \
+          | grep -E "^${ref}\." \
+          | head -1)
+        if [ -z "${tag}" ]; then
+          echo "::error::No release found matching '${ref}' in ${repo}"
+          exit 1
+        fi
+        echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+    - name: Download and install tftidy
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        ACTION_REPO: ${{ github.action_repository }}
+        RESOLVED_TAG: ${{ steps.resolve.outputs.tag }}
+        RESOLVED_OS: ${{ steps.platform.outputs.os }}
+        RESOLVED_ARCH: ${{ steps.platform.outputs.arch }}
+        RESOLVED_EXT: ${{ steps.platform.outputs.ext }}
+      run: |
+        asset="tftidy_${RESOLVED_OS}_${RESOLVED_ARCH}.${RESOLVED_EXT}"
+        dest="${RUNNER_TEMP}/tftidy"
+        mkdir -p "${dest}"
+        gh release download "${RESOLVED_TAG}" \
+          --repo "${ACTION_REPO}" \
+          --pattern "${asset}" \
+          --dir "${dest}"
+        if [ "${RESOLVED_EXT}" = "zip" ]; then
+          unzip -o "${dest}/${asset}" -d "${dest}"
+        else
+          tar -xzf "${dest}/${asset}" -C "${dest}"
+        fi
+        chmod +x "${dest}/tftidy" 2>/dev/null || true
+        echo "${dest}" >> "${GITHUB_PATH}"
+
+    - name: Run tftidy
+      shell: bash
+      env:
+        INPUT_TYPE: ${{ inputs.type }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_VERBOSE: ${{ inputs.verbose }}
+        INPUT_NORMALIZE_WHITESPACE: ${{ inputs.normalize-whitespace }}
+        INPUT_DIRECTORY: ${{ inputs.directory }}
+      run: |
+        args=()
+        if [ -n "${INPUT_TYPE}" ]; then
+          args+=(--type "${INPUT_TYPE}")
+        fi
+        if [ "${INPUT_DRY_RUN}" = "true" ]; then
+          args+=(--dry-run)
+        fi
+        if [ "${INPUT_VERBOSE}" = "true" ]; then
+          args+=(--verbose)
+        fi
+        if [ "${INPUT_NORMALIZE_WHITESPACE}" = "true" ]; then
+          args+=(--normalize-whitespace)
+        fi
+        if [ -n "${INPUT_DIRECTORY}" ] && [ "${INPUT_DIRECTORY}" != "." ]; then
+          target="${GITHUB_WORKSPACE}/${INPUT_DIRECTORY}"
+        else
+          target="${GITHUB_WORKSPACE}"
+        fi
+        # Prevent path traversal outside workspace
+        resolved=$(realpath -m "${target}")
+        workspace=$(realpath -m "${GITHUB_WORKSPACE}")
+        if [ "${resolved}" != "${workspace}" ] && [ "${resolved##"${workspace}/"}" = "${resolved}" ]; then
+          echo "::error::directory must be within the workspace"
+          exit 1
+        fi
+        tftidy "${args[@]}" "${resolved}"
