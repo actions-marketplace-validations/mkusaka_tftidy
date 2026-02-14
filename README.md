@@ -46,6 +46,12 @@ go install github.com/mkusaka/tftidy/cmd/tftidy@latest
 
 This installs the binary into your `$GOPATH/bin` (or `$GOBIN` if set).
 
+### From GitHub Releases
+
+Download pre-built binaries from the [Releases page](https://github.com/mkusaka/tftidy/releases).
+
+Available platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64.
+
 ## Usage
 
 ```bash
@@ -97,6 +103,62 @@ Preview only (no file writes):
 
 ```bash
 tftidy --dry-run ./terraform
+```
+
+## GitHub Actions
+
+You can use `tftidy` as a GitHub Action in your workflows.
+
+> **Note**: This action downloads a pre-built binary from [GitHub Releases](https://github.com/mkusaka/tftidy/releases). A release must exist before the action can be used. The `gh` CLI and `bash` are required on the runner (pre-installed on all GitHub-hosted runners).
+
+### Basic Usage
+
+```yaml
+- uses: mkusaka/tftidy@v0
+```
+
+### With Options
+
+```yaml
+- uses: mkusaka/tftidy@v0
+  with:
+    type: "moved,import"
+    dry-run: "true"
+    verbose: "true"
+    normalize-whitespace: "true"
+    directory: "terraform"
+```
+
+### Inputs
+
+| Input                   | Description                                           | Default               |
+|-------------------------|-------------------------------------------------------|-----------------------|
+| `type`                  | Comma-separated block types to remove (`moved`, `removed`, `import`, `all`) | `moved,removed,import`|
+| `dry-run`               | Preview changes without modifying files               | `false`               |
+| `verbose`               | Show each file being processed                        | `false`               |
+| `normalize-whitespace`  | Normalize consecutive blank lines after removal       | `false`               |
+| `directory`             | Target directory to scan (relative to workspace root) | `.`                   |
+
+### Example Workflow
+
+```yaml
+name: Terraform Tidy
+
+on:
+  pull_request:
+    paths:
+      - "**/*.tf"
+
+jobs:
+  tftidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mkusaka/tftidy@v0
+        with:
+          type: "moved,removed,import"
+          verbose: "true"
 ```
 
 ## Example Files
